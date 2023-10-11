@@ -1,0 +1,113 @@
+---
+- name: Verificar parâmetros fornecidos
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Verificar se 'env' foi fornecido
+      fail:
+        msg: "O parâmetro 'env' deve ser fornecido na linha de comando."
+      when: env is undefined or env is none or env | length == 0
+
+    - name: Verificar se 'attribute_name' foi fornecido
+      fail:
+        msg: "O parâmetro 'attribute_name' deve ser fornecido na linha de comando."
+      when: attribute_name is undefined or attribute_name is none or attribute_name | length == 0
+
+    - name: Verificar se 'attribute_value' foi fornecido
+      fail:
+        msg: "O parâmetro 'attribute_value' deve ser fornecido na linha de comando."
+      when: attribute_value is undefined or attribute_value is none or attribute_value | length == 0
+
+    - name: Verificar se 'app_name' foi fornecido
+      fail:
+        msg: "O parâmetro 'app_name' deve ser fornecido na linha de comando."
+      when: app_name is undefined or app_name is none or app_name | length == 0
+
+- name: Configurar o ambiente do Apigee
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Incluir as variáveis do ambiente
+      include_vars:
+        file: environments/environments.yml
+        name: env_vars
+
+    - name: Debug env_vars and env
+      debug:
+        var: env_vars
+      when: env_vars is defined
+
+    - name: Debug env
+      debug:
+        var: env
+      when: env is defined
+
+# - name: Copy SA
+#   hosts: localhost
+#   gather_facts: no
+#   tasks:
+#     - name: Copiando o script para o host de destino
+#       copy:
+#         src: "files/{{env_vars[env].service_account_file}}"
+#         dest: "/tmp/{{env_vars[env].service_account_file}}"
+
+- name: Encontrando o Developer do Apps no Apigee
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Copiando o script para o host de destino
+      copy:
+        src: files/get-developer-by-apps.py
+        dest: /tmp/get-developer-by-apps.py
+        mode: 0755
+
+    - name: Execute o script Python para encontrar o desenvolvedor
+      script: /tmp/get-developer-by-apps.py 
+              --service-account-file "files/{{env_vars[env].service_account_file}}" 
+              --org "{{env_vars[env].org}}" 
+              --app-name "{{ app_name }}" 
+      register: developer_output
+      changed_when: false
+
+    - name: Capturar saída do script em uma variável
+      set_fact:
+        developer_email: "{{ developer_output.stdout_lines[0] }}"
+      when: developer_output.stdout_lines[0] | length > 0
+
+    - name: Atualize o valor de developer_email no inventário
+      ini_file:
+        dest: "{{ inventory_dir }}/{{ inventory_file }}"
+        section: localhost:vars
+        option: developer_email
+        value: "{{ developer_email }}"
+      when: developer_email is defined
+
+    - name: Debug developer_email vars
+      debug:
+        var: developer_email
+
+- name: Criando o Custom Attributes no Apps do Apigee
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Copiando o script para o host de destino
+      copy:
+        src: files/add-customAttributes-apps.py
+        dest: /tmp/add-customAttributes-apps.py
+        mode: 0755
+    
+    - name: Executar script Python para criar/atualizar atributos personalizados
+      script: /tmp/add-customAttributes-apps.py 
+              --service-account-file "files/{{env_vars[env].service_account_file}}" 
+              --org "{{env_vars[env].org}}" 
+              --app-name "{{app_name}}"
+              --developer "{{developer_email}}"
+              --attribute-name "{{attribute_name}}"
+              --attribute-value "{{attribute_value}}"
+      when: developer_email is defined
+      register: add_custom_attr_output
+
+    - name: Exibir a saída do script Python
+      debug:
+        var: add_custom_attr_output.stdout
+      when: add_custom_attr_output.stdout | length > 0
