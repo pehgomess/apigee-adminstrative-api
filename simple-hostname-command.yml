@@ -1,0 +1,11 @@
+---
+- name: hostname no localhost
+  hosts: localhost
+  tasks:
+    - name: Executar comando hostname
+      command: hostname
+      register: resultado
+
+    - name: Exibir o resultado
+      debug:
+        var: resultado.stdout
