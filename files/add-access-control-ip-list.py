@@ -24,7 +24,7 @@ args = parser.parse_args()
 service_account_info = os.environ.get(args.service_account_env)
 
 if not service_account_info:
-    raise ValueError("As informações da conta de serviço não foram fornecidas nas variáveis de ambiente.")
+    raise ValueError("As informações da service account não foram fornecidas nas variáveis de ambiente.")
 
 credentials_info = json.loads(service_account_info)
 

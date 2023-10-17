@@ -3,7 +3,7 @@
 Nome do Script: add-CustomAttributes-apps.py
 Autor: Pedro Gomes  <pehgomess@gmail.com>
 Data de Criação: out/2023
-Descrição: Adiciona um custom attributes no Apps do apigee
+Descrição: Cria e faz replace caso exista um atributo no Apps do apigee
 """
 
 import argparse
